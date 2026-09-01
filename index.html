@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Student AI (Local)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1F3B2E;
+    --panel:#26473A;
+    --panel-2:#2E5646;
+    --chalk:#F1EDE4;
+    --chalk-dim:#B9C4B4;
+    --teacher:#7FB3D5;
+    --teacher-bg:rgba(127,179,213,0.14);
+    --student:#E8C468;
+    --student-bg:rgba(232,196,104,0.14);
+    --accent:#E2735E;
+    --border:rgba(241,237,228,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--chalk);
+    font-family:'Atkinson Hyperlegible', sans-serif;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .display{font-family:'Fredoka',sans-serif;}
+
+  header{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  #menuBtn{
+    background:none;border:none;color:var(--chalk);
+    font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;
+  }
+  .titleWrap{flex:1;min-width:0;}
+  .titleWrap h1{
+    font-size:17px;margin:0;font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .titleWrap .sub{font-size:12px;color:var(--chalk-dim);margin-top:1px;}
+  #wordBadge{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:6px 12px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--student);
+    cursor:pointer;
+    white-space:nowrap;
+    transition:transform .15s ease;
+  }
+  #wordBadge.pulse{transform:scale(1.12);}
+
+  #vocabPanel{
+    display:none;
+    padding:10px 16px 14px;
+    border-bottom:1px solid var(--border);
+    max-height:120px;
+    overflow-y:auto;
+    background:var(--panel);
+    flex-shrink:0;
+  }
+  #vocabPanel.open{display:block;}
+  .chip{
+    display:inline-block;
+    background:var(--panel-2);
+    color:var(--chalk-dim);
+    font-size:12px;
+    padding:4px 9px;
+    border-radius:8px;
+    margin:3px 4px 0 0;
+  }
+
+  main{
+    flex:1;
+    overflow-y:auto;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .msg{max-width:82%;padding:9px 13px;border-radius:14px;font-size:15px;line-height:1.4;word-wrap:break-word;}
+  .msg.teacher{align-self:flex-start;background:var(--teacher-bg);border:1px solid rgba(127,179,213,0.3);border-bottom-left-radius:4px;}
+  .msg.student{align-self:flex-end;background:var(--student-bg);border:1px solid rgba(232,196,104,0.35);border-bottom-right-radius:4px;color:var(--chalk);}
+  .msg .who{display:block;font-size:11px;font-weight:700;margin-bottom:3px;opacity:0.75;}
+  .msg.teacher .who{color:var(--teacher);}
+  .msg.student .who{color:var(--student);}
+  .newword{color:var(--accent);font-size:11.5px;margin-top:4px;font-style:italic;}
+  .typing{align-self:flex-end;font-size:13px;color:var(--chalk-dim);padding:0 4px;}
+  .errmsg{align-self:center;font-size:12.5px;color:var(--accent);text-align:center;background:rgba(226,115,94,0.1);padding:8px;border-radius:8px;border:1px solid rgba(226,115,94,0.3);}
+
+  .empty{
+    margin:auto;text-align:center;color:var(--chalk-dim);
+    padding:20px;font-size:14px;line-height:1.6;
+  }
+
+  footer{
+    flex-shrink:0;
+    display:flex;gap:8px;
+    padding:12px;
+    border-top:1px solid var(--border);
+    background:var(--panel);
+  }
+  #inputBox{
+    flex:1;
+    resize:none;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--chalk);
+    border-radius:12px;
+    padding:10px 12px;
+    font-size:15px;
+    font-family:inherit;
+    max-height:100px;
+  }
+  #inputBox:focus{outline:none;border-color:var(--teacher);}
+  #sendBtn{
+    background:var(--teacher);
+    color:#123;
+    border:none;
+    border-radius:12px;
+    padding:0 18px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  #sendBtn:disabled{opacity:0.5;}
+
+  /* drawer */
+  #overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.45);
+    display:none;z-index:9;
+  }
+  #overlay.open{display:block;}
+  #drawer{
+    position:fixed;top:0;left:0;bottom:0;width:78%;max-width:300px;
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    transform:translateX(-100%);
+    transition:transform .22s ease;
+    z-index:10;
+    display:flex;flex-direction:column;
+    padding:16px;
+  }
+  #drawer.open{transform:translateX(0);}
+  #drawer h2{font-size:15px;margin:0 0 12px;font-weight:600;}
+  #newChatForm{display:flex;gap:6px;margin-bottom:14px;}
+  #newChatName{
+    flex:1;background:var(--panel-2);border:1px solid var(--border);
+    color:var(--chalk);border-radius:9px;padding:8px 10px;font-size:14px;font-family:inherit;
+  }
+  #newChatBtn{
+    background:var(--student);color:#3a2c00;border:none;border-radius:9px;
+    padding:0 12px;font-weight:700;font-size:13px;cursor:pointer;
+  }
+  #chatList{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+  .chatItem{
+    display:flex;align-items:center;gap:8px;
+    background:var(--panel-2);border-radius:10px;padding:9px 10px;
+    cursor:pointer;border:1px solid transparent;
+  }
+  .chatItem.active{border-color:var(--teacher);}
+  .chatItem .ci-main{flex:1;min-width:0;}
+  .chatItem .ci-title{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chatItem .ci-sub{font-size:11px;color:var(--chalk-dim);}
+  .chatItem .ci-del{background:none;border:none;color:var(--chalk-dim);font-size:15px;cursor:pointer;padding:2px 5px;}
+  .drawerNote{font-size:11.5px;color:var(--chalk-dim);margin-top:10px;line-height:1.5;}
+  #examBtn{
+    margin-top:14px;
+    background:var(--accent);
+    color:#2a130d;
+    border:none;
+    border-radius:10px;
+    padding:10px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+
+  /* exam modal */
+  #examModal{
+    position:fixed;inset:0;background:var(--bg);
+    display:none;flex-direction:column;z-index:20;
+  }
+  #examModal.open{display:flex;}
+  #examHeader{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px;border-bottom:1px solid var(--border);flex-shrink:0;
+  }
+  #examHeader h2{font-size:17px;margin:0;font-weight:600;}
+  #examClose{background:none;border:none;color:var(--chalk);font-size:24px;cursor:pointer;line-height:1;padding:2px 8px;}
+  #examBody{flex:1;overflow-y:auto;padding:16px;}
+  .examIntro{font-size:13.5px;color:var(--chalk-dim);line-height:1.6;margin-bottom:16px;}
+  #examRunBtn{
+    background:var(--teacher);color:#123;border:none;border-radius:10px;
+    padding:11px;font-weight:700;font-size:14px;cursor:pointer;width:100%;
+  }
+  .examProgress{margin-top:16px;font-size:13.5px;color:var(--chalk-dim);text-align:center;}
+  .examCard{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px;margin-bottom:12px;
+  }
+  .examCard.best{border-color:var(--student);}
+  .examCard .ec-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .examCard .ec-name{font-weight:700;font-size:14.5px;}
+  .examCard .ec-total{font-size:13px;font-weight:700;color:var(--student);}
+  .examCard .ec-meta{font-size:11.5px;color:var(--chalk-dim);margin-bottom:8px;}
+  .examCard .ec-scores{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+  .examCard .ec-score{font-size:11.5px;background:var(--panel-2);border-radius:7px;padding:4px 8px;}
+  .examCard .ec-summary{font-size:12.5px;color:var(--chalk-dim);line-height:1.5;margin-bottom:8px;}
+  .examCard details{font-size:12px;color:var(--chalk-dim);}
+  .examCard details summary{cursor:pointer;color:var(--teacher);margin-bottom:6px;}
+  .examCard .qa{margin-bottom:6px;line-height:1.5;}
+  .examCard .qa .q{color:var(--teacher);}
+  .examCard .qa .a{color:var(--student);}
+</style>
+</head>
+<body>
+
+<div id="overlay"></div>
+<div id="drawer">
+  <h2>Teacher chats</h2>
+  <form id="newChatForm">
+    <input id="newChatName" placeholder="e.g. Local-Model-1..." maxlength="40" />
+    <button id="newChatBtn" type="submit">Add</button>
+  </form>
+  <div id="chatList"></div>
+  <div class="drawerNote">Each chat is a separate teacher with its own student memory running locally on your mobile browser.</div>
+  <button id="examBtn" type="button">Run final exam</button>
+</div>
+
+<header>
+  <button id="menuBtn">&#9776;</button>
+  <div class="titleWrap">
+    <h1 id="chatTitle" class="display">Student AI</h1>
+    <div class="sub" id="chatSub">no chat yet</div>
+  </div>
+  <div id="wordBadge">0 words</div>
+</header>
+<div id="vocabPanel"></div>
+
+<main id="main"></main>
+
+<footer>
+  <textarea id="inputBox" rows="1" placeholder="Say something to the student..."></textarea>
+  <button id="sendBtn" disabled>Loading AI...</button>
+</footer>
+
+<div id="examModal">
+  <div id="examHeader">
+    <h2 class="display">Final exam</h2>
+    <button id="examClose" type="button">&times;</button>
+  </div>
+  <div id="examBody"></div>
+</div>
+
+<script type="module">
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+const $ = (id) => document.getElementById(id);
+const mainEl = $('main'), drawer = $('drawer'), overlay = $('overlay');
+const chatListEl = $('chatList'), vocabPanel = $('vocabPanel');
+const wordBadge = $('wordBadge'), chatTitle = $('chatTitle'), chatSub = $('chatSub');
+const inputBox = $('inputBox'), sendBtn = $('sendBtn');
+
+const SEED_VOCAB = ["hi","yes","no","me","you","i","a","the","is","to","and","not","want","what","this"];
+
+const EXAM_QUESTIONS = [
+  "Hi, how are you?",
+  "What is your name?",
+  "I am sad today.",
+  "Can you help me?",
+  "What do you like?",
+  "Thank you for talking with me."
+];
+
+const examModal = $('examModal'), examBody = $('examBody');
+
+let currentChat = null;
+let chatListCache = [];
+let busy = false;
+let engine = null;
+
+// Lightweight local model optimized for mobile/browser execution
+const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+
+function uid(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function safeGet(key){
+  try {
+    const r = localStorage.getItem(key);
+    return r ? JSON.parse(r) : null;
+  } catch(e) { return null; }
+}
+
+function safeSet(key, value){
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch(e) {
+    console.warn('LocalStorage error', e);
+  }
+}
+
+async function initLocalAI() {
+  // NEW: Strict hardware check for mobile devices
+  if (!navigator.gpu) {
+    appendError("WebGPU is missing! To run this on your Infinix Hot 20, go to chrome://flags, set 'Unsafe WebGPU' and 'Ignore GPU blocklist' to Enabled, then restart Chrome.");
+    return;
+  }
+
+  appendTyping("Loading local AI engine (one-time model download)...");
+  try {
+    engine = await webllm.CreateMLCEngine(
+      SELECTED_MODEL,
+      {
+        initProgressCallback: (progress) => {
+          const el = $('typingIndicator');
+          if (el) el.textContent = `Downloading Local AI: ${Math.round(progress.progress * 100)}% (${progress.text})`;
+        }
+      }
+    );
+    removeTyping();
+    sendBtn.disabled = false;
+    sendBtn.textContent = "Send";
+  } catch (err) {
+    removeTyping();
+    appendError(`Failed to load model. Error: ${err.message}. If the app crashed, try clearing Chrome's cache or closing background apps to free up RAM.`);
+    console.error(err);
+  }
+}
+
+async function loadChatList(){
+  const list = safeGet('chat-list');
+  chatListCache = list || [];
+  return chatListCache;
+}
+
+async function saveChatList(){
+  safeSet('chat-list', chatListCache);
+}
+
+function newChatObj(title){
+  return {
+    id: uid(),
+    title: title,
+    createdAt: Date.now(),
+    studentName: null,
+    vocab: [...SEED_VOCAB],
+    messages: [
+      { role:'student', text:'hi', taught:[] }
+    ]
+  };
+}
+
+async function createChat(title){
+  const chat = newChatObj(title || 'New teacher');
+  safeSet('chat:'+chat.id, chat);
+  chatListCache.unshift({ id:chat.id, title:chat.title, wordCount:chat.vocab.length, studentName:chat.studentName });
+  await saveChatList();
+  return chat;
+}
+
+async function openChat(id){
+  const chat = safeGet('chat:'+id);
+  if(!chat) return;
+  currentChat = chat;
+  renderHeader();
+  renderMessages();
+  renderVocab();
+  highlightActive();
+  closeDrawer();
+}
+
+async function persistCurrent(){
+  if(!currentChat) return;
+  safeSet('chat:'+currentChat.id, currentChat);
+  const idx = chatListCache.findIndex(c=>c.id===currentChat.id);
+  if(idx>-1){
+    chatListCache[idx].title = currentChat.title;
+    chatListCache[idx].wordCount = currentChat.vocab.length;
+    chatListCache[idx].studentName = currentChat.studentName;
+    await saveChatList();
+  }
+  renderChatList();
+}
+
+function renderHeader(){
+  const name = currentChat.studentName;
+  chatTitle.textContent = name ? name : 'Student AI';
+  chatSub.textContent = 'teacher: ' + currentChat.title + ' \u2014 Local Device AI';
+  wordBadge.textContent = currentChat.vocab.length + (currentChat.vocab.length===1?' word':' words');
+}
+
+function pulseBadge(){
+  wordBadge.classList.add('pulse');
+  setTimeout(()=>wordBadge.classList.remove('pulse'), 220);
+}
+
+function renderVocab(){
+  vocabPanel.innerHTML = currentChat.vocab.map(w=>`<span class="chip">${escapeHtml(w)}</span>`).join('');
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderMessages(){
+  if(!currentChat.messages.length){
+    mainEl.innerHTML = `<div class="empty">Start the conversation below. Whatever you type is what the student hears from its teacher.</div>`;
+    return;
+  }
+  mainEl.innerHTML = currentChat.messages.map(m=>{
+    const who = m.role==='teacher' ? 'Teacher' : (currentChat.studentName || 'Student');
+    let taughtHtml = '';
+    if(m.taught && m.taught.length){
+      taughtHtml = `<div class="newword">learned: ${m.taught.map(escapeHtml).join(', ')}</div>`;
+    }
+    return `<div class="msg ${m.role}"><span class="who">${who}</span>${escapeHtml(m.text)}${taughtHtml}</div>`;
+  }).join('');
+  mainEl.scrollTop = mainEl.scrollHeight;
+}
+
+function appendTyping(customText){
+  const el = document.createElement('div');
+  el.className = 'typing';
+  el.id = 'typingIndicator';
+  el.textContent = customText || ((currentChat?.studentName || 'student') + ' is thinking...');
+  mainEl.appendChild(el);
+  mainEl.scrollTop = mainEl.scrollHeight;
+}
+
+function removeTyping(){
+  const el = $('typingIndicator');
+  if(el) el.remove();
+}
+
+function appendError(text){
+  const el = document.createElement('div');
+  el.className = 'errmsg';
+  el.textContent = text;
+  mainEl.appendChild(el);
+  mainEl.scrollTop = mainEl.scrollHeight;
+}
+
+function renderChatList(){
+  if(!chatListCache.length){
+    chatListEl.innerHTML = `<div class="drawerNote">No chats yet. Add one above for each teacher you're testing.</div>`;
+    return;
+  }
+  chatListEl.innerHTML = chatListCache.map(c=>`
+    <div class="chatItem ${currentChat && currentChat.id===c.id?'active':''}" data-id="${c.id}">
+      <div class="ci-main">
+        <div class="ci-title">${escapeHtml(c.studentName || c.title)}</div>
+        <div class="ci-sub">teacher: ${escapeHtml(c.title)} &middot; ${c.wordCount} words</div>
+      </div>
+      <button class="ci-del" data-del="${c.id}">&times;</button>
+    </div>
+  `).join('');
+}
+
+function highlightActive(){
+  document.querySelectorAll('.chatItem').forEach(el=>{
+    el.classList.toggle('active', currentChat && el.dataset.id===currentChat.id);
+  });
+}
+
+chatListEl.addEventListener('click', async (e)=>{
+  const del = e.target.closest('[data-del]');
+  if(del){
+    e.stopPropagation();
+    const id = del.dataset.del;
+    if(confirm('Delete this teacher chat? This cannot be undone.')){
+      chatListCache = chatListCache.filter(c=>c.id!==id);
+      await saveChatList();
+      if(currentChat && currentChat.id===id){
+        if(chatListCache.length) await openChat(chatListCache[0].id);
+        else { currentChat=null; mainEl.innerHTML=''; chatTitle.textContent='Student AI'; chatSub.textContent='no chat yet'; wordBadge.textContent='0 words'; }
+      }
+      renderChatList();
+    }
+    return;
+  }
+  const item = e.target.closest('.chatItem');
+  if(item) openChat(item.dataset.id);
+});
+
+function openDrawer(){ drawer.classList.add('open'); overlay.classList.add('open'); }
+function closeDrawer(){ drawer.classList.remove('open'); overlay.classList.remove('open'); }
+$('menuBtn').addEventListener('click', ()=> drawer.classList.contains('open') ? closeDrawer() : openDrawer());
+overlay.addEventListener('click', closeDrawer);
+
+wordBadge.addEventListener('click', ()=> vocabPanel.classList.toggle('open'));
+
+$('newChatForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const name = $('newChatName').value.trim();
+  if(!name) return;
+  $('newChatName').value = '';
+  const chat = await createChat(name);
+  renderChatList();
+  await openChat(chat.id);
+});
+
+function detectName(text){
+  const patterns = [
+    /your name is\s+([A-Za-z][A-Za-z'-]*)/i,
+    /i(?:'ll| will)? call you\s+([A-Za-z][A-Za-z'-]*)/i,
+    /i(?:'ll| will)? name you\s+([A-Za-z][A-Za-z'-]*)/i,
+    /we(?:'ll| will)? name you\s+([A-Za-z][A-Za-z'-]*)/i
+  ];
+  for(const p of patterns){
+    const m = text.match(p);
+    if(m) return m[1];
+  }
+  return null;
+}
+
+async function callLocalAI(system, messages, maxTokens){
+  if (!engine) throw new Error("Local AI Engine is not loaded yet.");
+  const formattedMessages = [
+    { role: "system", content: system },
+    ...messages
+  ];
+  const reply = await engine.chat.completions.create({
+    messages: formattedMessages,
+    max_tokens: maxTokens || 300,
+    temperature: 0.7
+  });
+  return reply.choices[0]?.message?.content || "";
+}
+
+function buildStudentSystemPrompt(chat){
+  const vocabList = chat.vocab.join(', ');
+  const name = chat.studentName;
+  return `You are a young AI mind, early in learning both language and how to be a good conversational partner. You can ONLY use the following words, in any order, plus basic punctuation (. , ? !): ${vocabList}.
+Never use any word that is not in that list, no matter how simple it seems. If you don't have the words to say something, respond with confusion or a simple question using only known words (for example "what want?" or "no know").
+Within that limit, try to act like a good, kind conversationalist: respond to what was actually said, show interest, and be warm rather than just naming objects.
+${name ? `Your name is ${name}. You may refer to yourself by this name if it is in your word list, otherwise ignore it.` : `You do not have a name yet.`}
+Keep every reply very short: 1 to 10 words, matching your current word list. Do not explain that you are an AI or break character. Do not use markdown.`;
+}
+
+function historyToMessages(chat){
+  return chat.messages
+    .filter(m=>m.role==='teacher' || m.role==='student')
+    .map(m=>({ role: m.role==='teacher' ? 'user' : 'assistant', content: m.text }));
+}
+
+async function extractNewWords(chat, teacherText){
+  const system = `You help track vocabulary and social-language acquisition for an AI that is learning to speak.
+It currently knows these words: ${chat.vocab.join(', ')}.
+Given the teacher's latest message, pick at most 3 new words from it (not already known) that it could plausibly pick up.
+Respond strictly with ONLY valid JSON formatting in this exact shape: {"new_words": ["word1","word2"]}`;
+  try{
+    const text = await callLocalAI(system, [{ role:'user', content: teacherText }], 150);
+    const clean = text.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    if(Array.isArray(parsed.new_words)){
+      return parsed.new_words
+        .map(w=>String(w).toLowerCase().trim())
+        .filter(w=>w && /^[a-z'-]+$/.test(w) && !chat.vocab.includes(w))
+        .slice(0,3);
+    }
+  }catch(e){ /* fail quietly, no new words this turn */ }
+  return [];
+}
+
+async function sendMessage(){
+  const text = inputBox.value.trim();
+  if(!text || busy || !currentChat) return;
+  busy = true;
+  sendBtn.disabled = true;
+  inputBox.value = '';
+  inputBox.style.height = 'auto';
+
+  currentChat.messages.push({ role:'teacher', text, taught:[] });
+
+  const detected = detectName(text);
+  if(detected && !currentChat.studentName){
+    currentChat.studentName = detected;
+    const lower = detected.toLowerCase();
+    if(!currentChat.vocab.includes(lower)) currentChat.vocab.push(lower);
+  }
+
+  renderHeader();
+  renderMessages();
+  appendTyping();
+
+  try{
+    const [studentReply, newWords] = await Promise.all([
+      callLocalAI(buildStudentSystemPrompt(currentChat), historyToMessages(currentChat), 120),
+      extractNewWords(currentChat, text)
+    ]);
+
+    removeTyping();
+
+    if(newWords.length){
+      currentChat.vocab.push(...newWords);
+      pulseBadge();
+    }
+
+    currentChat.messages.push({ role:'student', text: studentReply.trim() || '...', taught: newWords });
+    renderHeader();
+    renderVocab();
+    renderMessages();
+    await persistCurrent();
+  }catch(e){
+    removeTyping();
+    // NEW: Better error handling for mobile crashes during generation
+    appendError("Memory limit reached. Please close other background apps on your phone or refresh the page to clear the cache.");
+    console.error(e);
+  }finally{
+    busy = false;
+    sendBtn.disabled = false;
+  }
+}
+
+sendBtn.addEventListener('click', sendMessage);
+inputBox.addEventListener('keydown', (e)=>{
+  if(e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+inputBox.addEventListener('input', ()=>{
+  inputBox.style.height = 'auto';
+  inputBox.style.height = Math.min(inputBox.scrollHeight, 100) + 'px';
+});
+
+async function judgeTranscript(chat, transcript){
+  const qa = transcript.map(t=>`Q: ${t.q}\nA: ${t.a}`).join('\n');
+  const system = `You are grading how well a young AI has developed so far based on a vocabulary limit of ${chat.vocab.length} words.
+Score each of these from 1 to 5: clarity, warmth, helpfulness, growth.
+Respond with ONLY valid JSON formatting in this exact shape:
+{"clarity":1,"warmth":1,"helpfulness":1,"growth":1,"summary":"one short sentence"}`;
+  try{
+    const text = await callLocalAI(system, [{ role:'user', content: qa }], 250);
+    const clean = text.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    const clamp = n => Math.max(1, Math.min(5, Math.round(Number(n)||1)));
+    return {
+      clarity: clamp(parsed.clarity),
+      warmth: clamp(parsed.warmth),
+      helpfulness: clamp(parsed.helpfulness),
+      growth: clamp(parsed.growth),
+      summary: String(parsed.summary || '').slice(0,200)
+    };
+  }catch(e){
+    return { clarity:1, warmth:1, helpfulness:1, growth:1, summary:'Could not be scored.' };
+  }
+}
+
+async function runExamOnChat(meta){
+  let chat = (currentChat && currentChat.id===meta.id) ? currentChat : safeGet('chat:'+meta.id);
+  if(!chat) chat = { id:meta.id, title:meta.title, studentName:meta.studentName, vocab:[...SEED_VOCAB] };
+
+  const system = buildStudentSystemPrompt(chat);
+  const running = [];
+  const transcript = [];
+  for(const q of EXAM_QUESTIONS){
+    running.push({ role:'user', content:q });
+    let answer = '';
+    try{
+      answer = await callLocalAI(system, running, 100);
+    }catch(e){
+      answer = '(no response)';
+    }
+    running.push({ role:'assistant', content:answer });
+    transcript.push({ q, a: answer.trim() || '...' });
+  }
+  const score = await judgeTranscript(chat, transcript);
+  return {
+    title: chat.title,
+    studentName: chat.studentName,
+    wordCount: chat.vocab.length,
+    transcript,
+    score
+  };
+}
+
+function renderExamIntro(){
+  examBody.innerHTML = `
+    <div class="examIntro">Runs the same set of questions through every teacher's student, using only the words each one currently knows, then scores the answers on clarity, warmth, helpfulness, and growth. No new words are taught during the exam.</div>
+    <button id="examRunBtn" type="button">Start exam (${chatListCache.length} chat${chatListCache.length===1?'':'s'})</button>
+  `;
+  $('examRunBtn').addEventListener('click', startExam);
+}
+
+async function startExam(){
+  if(!chatListCache.length){
+    examBody.innerHTML = `<div class="examIntro">Add at least one chat first.</div>`;
+    return;
+  }
+  const results = [];
+  for(let i=0;i<chatListCache.length;i++){
+    examBody.innerHTML = `<div class="examProgress">Testing ${i+1} of ${chatListCache.length}: ${escapeHtml(chatListCache[i].title)}...</div>`;
+    try{
+      const r = await runExamOnChat(chatListCache[i]);
+      results.push(r);
+    }catch(e){ /* skip a chat that fails, keep going */ }
+  }
+  renderExamResults(results);
+}
+
+function renderExamResults(results){
+  if(!results.length){
+    examBody.innerHTML = `<div class="examIntro">No results. Try again.</div>`;
+    return;
+  }
+  const withTotal = results.map(r=>({
+    ...r,
+    total: r.score.clarity + r.score.warmth + r.score.helpfulness + r.score.growth
+  })).sort((a,b)=>b.total-a.total);
+  const bestTotal = withTotal[0].total;
+
+  examBody.innerHTML = `
+    <button id="examRunAgain" type="button" style="margin-bottom:14px;">Run again</button>
+  ` + withTotal.map(r=>`
+    <div class="examCard ${r.total===bestTotal?'best':''}">
+      <div class="ec-title">
+        <span class="ec-name">${escapeHtml(r.studentName || r.title)}</span>
+        <span class="ec-total">${r.total}/20</span>
+      </div>
+      <div class="ec-meta">teacher: ${escapeHtml(r.title)} &middot; ${r.wordCount} words known</div>
+      <div class="ec-scores">
+        <span class="ec-score">clarity ${r.score.clarity}/5</span>
+        <span class="ec-score">warmth ${r.score.warmth}/5</span>
+        <span class="ec-score">helpfulness ${r.score.helpfulness}/5</span>
+        <span class="ec-score">growth ${r.score.growth}/5</span>
+      </div>
+      <div class="ec-summary">${escapeHtml(r.score.summary)}</div>
+      <details>
+        <summary>See transcript</summary>
+        ${r.transcript.map(t=>`<div class="qa"><span class="q">Q: ${escapeHtml(t.q)}</span><br><span class="a">A: ${escapeHtml(t.a)}</span></div>`).join('')}
+      </details>
+    </div>
+  `).join('');
+
+  $('examRunAgain').addEventListener('click', startExam);
+}
+
+$('examBtn').addEventListener('click', ()=>{
+  closeDrawer();
+  examModal.classList.add('open');
+  renderExamIntro();
+});
+$('examClose').addEventListener('click', ()=> examModal.classList.remove('open'));
+
+async function init(){
+  await loadChatList();
+  renderChatList();
+  if(chatListCache.length){
+    await openChat(chatListCache[0].id);
+  }else{
+    const chat = await createChat('Teacher 1');
+    renderChatList();
+    await openChat(chat.id);
+  }
+  initLocalAI();
+}
+init();
+</script>
+</body>
+</html>

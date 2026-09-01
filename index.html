@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+no<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -597,11 +597,16 @@ async function sendMessage(){
   renderMessages();
   appendTyping();
 
-  try{
-    const [studentReply, newWords] = await Promise.all([
-      callLocalAI(buildStudentSystemPrompt(currentChat), historyToMessages(currentChat), 120),
-      extractNewWords(currentChat, text)
-    ]);
+    try{
+    // Step 1: Generate response first
+    const studentReply = await callLocalAI(
+      buildStudentSystemPrompt(currentChat), 
+      historyToMessages(currentChat), 
+      120
+    );
+
+    // Step 2: Extract words second (prevents VRAM overload)
+    const newWords = await extractNewWords(currentChat, text);
 
     removeTyping();
 
